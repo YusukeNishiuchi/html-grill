@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>宿題リマインドボット 第1回</title>
+<link rel="stylesheet" href="htmlplan.css">
+<script src="htmlplan.js" defer></script>
+<style data-mock-shared>
+  .note { font: 14px/1.6 -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; color: #1c1b19; background: #fff; border: 1px solid #ddd8cc; border-radius: 10px; padding: 10px 14px; }
+  .note .nh { font-weight: 650; margin-bottom: 4px; } .note .ns { color: #8a8578; margin-top: 6px; } .note .on { background: #fdf3d8; color: #1c1b19; border-radius: 6px; padding: 1px 6px; margin-left: -6px; }
+  .sl { font: 14px/1.5 -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; color: #1d1c1d; background: #fff; border: 1px solid #ddd8cc; border-radius: 10px; padding: 10px 14px; display: grid; grid-template-columns: 36px 1fr; gap: 2px 10px; }
+  .sl .av { width: 36px; height: 36px; border-radius: 8px; background: #4a154b; color: #fff; display: grid; place-items: center; font-weight: 700; grid-row: span 3; }
+  .sl .who b { margin-right: 6px; } .sl .dim { color: #8a8578; font-size: 12px; }
+  .sl .btn { display: inline-block; border: 1px solid #ddd8cc; border-radius: 6px; padding: 3px 10px; font-size: 13px; font-weight: 600; margin-top: 4px; }
+</style>
+<body>
+
+<header>
+  <h1>宿題リマインドボット 第1回</h1>
+  <doc-progress round="1"></doc-progress>
+  <details class="thread"><summary>依頼の原文 · 1件</summary>
+    <doc-quote via="prompt" from="ユーザー">会議録から各自の宿題を拾って、期限の前日にSlackで本人に知らせたい。忘れられる宿題が多い。</doc-quote>
+  </details>
+</header>
+
+<main>
+<doc-plan>
+
+<!-- ═════ 1 · 拾い方 ═════ -->
+<doc-claim>
+  <p>ボットは会議録の「各自の宿題」節だけを読む。</p>
+  <doc-mock frame="none" w="420"><template>
+<div class="note">
+  <div class="nh">2026-10-14 定例</div>
+  <div class="ns">## 決定事項</div>
+  <div>・リリースは11月第2週にする</div>
+  <div class="ns"><span class="on" data-ref="sec">## 各自の宿題</span></div>
+  <div>・田中: 見積もりを出す（10/20まで）</div>
+  <div>・佐藤: 画面案を直す（期限なし）</div>
+</div></template>
+    <doc-pin ref="sec" anchor="r" title="ボットが読む節">ほかの節は読まない。</doc-pin>
+  </doc-mock>
+  <doc-ask id="source">
+    <p>宿題はどこから拾いますか？</p>
+    <label><input type="radio" name="source" value="section" checked> 「各自の宿題」節だけ <small>書式が決まっていて、拾い漏れが少ない</small></label>
+    <label><input type="radio" name="source" value="ai"> 本文の全体から AI で抜き出す <small>誤検出がある。1.1 は不要になる</small></label>
+    <div class="opts-row esc">
+      <label><input type="radio" name="source" value="other"> その他（補足に書く）</label>
+      <label><input type="radio" name="source" value="hold"> まだ決められない</label>
+    </div>
+    <textarea name="source.note" placeholder="補足・その他の答え（任意）"></textarea>
+  </doc-ask>
+  <div data-if="source=ai"><doc-note tone="warn">AI で抜き出すなら、誤検出を人が確かめる手順が別に必要になる。</doc-note></div>
+
+  <doc-claim settled="仮">
+    <p>宿題の1行には、担当者・内容・期限の3つが必要である。</p>
+    <doc-code title="宿題の1行の形 · 例" lang="md">
+<script type="text/plain">
+- 田中: 見積もりを出す（10/20まで）
+- 佐藤: 画面案を直す（期限なし）
+</script>
+      <doc-pin line="2" title="期限のない宿題">扱いは 3.1 で聞く。</doc-pin>
+    </doc-code>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 2 · 送り先 ═════ -->
+<doc-claim>
+  <p>ボットは期限の前日に、担当者本人へ DM を送る。</p>
+  <doc-mock frame="none" w="420"><template>
+<div class="sl">
+  <div class="av">宿</div>
+  <div class="who"><b>宿題リマインド</b><span class="dim">アプリ · 10/19 9:00</span></div>
+  <div data-ref="msg">明日 <b>10/20</b> が期限の宿題があります。<br>・見積もりを出す（10/14 定例）</div>
+  <div><span class="btn">会議録を開く</span></div>
+</div></template>
+    <doc-pin ref="msg" anchor="r" title="本人だけに届く">チャンネルには出ない。</doc-pin>
+  </doc-mock>
+  <doc-ask id="channel">
+    <p>通知はどこに送りますか？</p>
+    <label><input type="radio" name="channel" value="dm" checked> 担当者本人への DM だけ <small>ほかの人には見えない</small></label>
+    <label><input type="radio" name="channel" value="room"> プロジェクトのチャンネル <small>全員に見えるので、催促が強い</small></label>
+    <label><input type="radio" name="channel" value="both"> DM と、週1回チャンネルに一覧 <small>一覧の中身を次の回で聞く</small></label>
+    <div class="opts-row esc">
+      <label><input type="radio" name="channel" value="other"> その他（補足に書く）</label>
+      <label><input type="radio" name="channel" value="hold"> まだ決められない</label>
+    </div>
+    <textarea name="channel.note" placeholder="補足・その他の答え（任意）"></textarea>
+  </doc-ask>
+
+  <doc-claim>
+    <p>DM の宛先は、社員名簿の Slack ID 列から引く。</p>
+    <doc-code title="docs/members.csv · 1〜3行目" lang="csv">
+<script type="text/plain">
+name,dept,slack_id
+田中 一郎,開発1課,U04ABCD12
+佐藤 花子,開発1課,U05EFGH34
+</script>
+      <doc-pin line="1" tone="ok" title="Slack ID の列がある">名簿を読んで確かめた。質問にしない。</doc-pin>
+    </doc-code>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 3 · タイミング ═════ -->
+<doc-claim>
+  <p>通知は、期限の前日の朝9時に1回だけ送る。</p>
+  <doc-ask id="timing">
+    <p>通知はいつ送りますか？</p>
+    <label><input type="radio" name="timing" value="eve" checked> 期限の前日に1回 <small>通知が少なく、無視されにくい</small></label>
+    <label><input type="radio" name="timing" value="eve-day"> 前日と当日の2回 <small>当日の朝にもう一度知らせる</small></label>
+    <label><input type="radio" name="timing" value="3days"> 3日前と前日の2回 <small>重い宿題にも間に合う</small></label>
+    <div class="opts-row esc">
+      <label><input type="radio" name="timing" value="other"> その他（補足に書く）</label>
+      <label><input type="radio" name="timing" value="hold"> まだ決められない</label>
+    </div>
+    <textarea name="timing.note" placeholder="補足・その他の答え（任意）"></textarea>
+  </doc-ask>
+
+  <doc-claim>
+    <p>期限のない宿題には、通知を送らない。</p>
+    <doc-ask id="nodue">
+      <p>期限のない宿題はどうしますか？</p>
+      <label><input type="radio" name="nodue" value="skip" checked> 通知しない <small>期限を書く運用に任せる</small></label>
+      <label><input type="radio" name="nodue" value="week"> 会議の1週間後に1回だけ通知する</label>
+      <label><input type="radio" name="nodue" value="ask"> 期限を決めるよう、担当者に DM で頼む</label>
+      <div class="opts-row esc">
+        <label><input type="radio" name="nodue" value="other"> その他（補足に書く）</label>
+        <label><input type="radio" name="nodue" value="hold"> まだ決められない</label>
+      </div>
+      <textarea name="nodue.note" placeholder="補足・その他の答え（任意）"></textarea>
+    </doc-ask>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 後で聞くこと · 変えないもの ═════ -->
+<doc-claim aux="later">
+  <p>次の回で聞くこと: 完了の扱いと、期限切れの扱い。</p>
+  <ul>
+    <li>担当者が宿題の完了をどう知らせるか。2 の送り先が決まってから聞く。</li>
+    <li>期限を過ぎた宿題に、もう一度通知するか。完了の扱いが決まってから聞く。</li>
+  </ul>
+</doc-claim>
+
+<doc-claim aux="scope">
+  <p>変えないもの: 会議録の書き方と、宿題の作り方。</p>
+  <ul>
+    <li>会議録の書式は今のまま使う。</li>
+    <li>ボットは宿題を作らない。消さない。</li>
+  </ul>
+</doc-claim>
+
+</doc-plan>
+</main>
+</body>
+</html>

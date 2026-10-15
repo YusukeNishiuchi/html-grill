@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+._*
+
+# エディタ / 一時ファイル
+*.swp
+*~
+*.tmp

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>宿題リマインドボット 第2回</title>
+<link rel="stylesheet" href="htmlplan.css">
+<script src="htmlplan.js" defer></script>
+<style data-mock-shared>
+  .sl { font: 14px/1.5 -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; color: #1d1c1d; background: #fff; border: 1px solid #ddd8cc; border-radius: 10px; padding: 10px 14px; display: grid; grid-template-columns: 36px 1fr; gap: 2px 10px; }
+  .sl .av { width: 36px; height: 36px; border-radius: 8px; background: #4a154b; color: #fff; display: grid; place-items: center; font-weight: 700; grid-row: span 4; }
+  .sl .who b { margin-right: 6px; } .sl .dim { color: #8a8578; font-size: 12px; } .sl .late { color: #b42318; font-weight: 600; }
+</style>
+<body>
+
+<header>
+  <h1>宿題リマインドボット 第2回</h1>
+  <doc-progress round="2"></doc-progress>
+  <details class="thread"><summary>依頼の原文と前回の回答 · 2件</summary>
+    <doc-quote via="prompt" from="ユーザー">会議録から各自の宿題を拾って、期限の前日にSlackで本人に知らせたい。忘れられる宿題が多い。</doc-quote>
+    <doc-quote via="answer" from="第1回の回答">送り先は DM と、週1回チャンネルに一覧。期限なしは1週間後に1回だけでいい</doc-quote>
+  </details>
+</header>
+
+<main>
+<doc-plan>
+
+<!-- ═════ 1 · 拾い方（決定済み） ═════ -->
+<doc-claim settled="1">
+  <p>ボットは会議録の「各自の宿題」節だけを読む。</p>
+  <doc-claim settled="仮">
+    <p>宿題の1行には、担当者・内容・期限の3つが必要である。</p>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 2 · 送り先 ═════ -->
+<doc-claim settled="1">
+  <p>ボットは前日に本人へ DM を送り、週1回チャンネルに一覧を出す。</p>
+
+  <doc-claim>
+    <p>DM が届かないときは、会議の主催者に知らせる。</p>
+    <doc-quote via="answer" from="第1回のコメント（2.1 に対して）">名簿のSlack IDは古い人がいる</doc-quote>
+    <doc-ask id="stale">
+      <p>社員名簿の Slack ID が古いときは、どうしますか？</p>
+      <label><input type="radio" name="stale" value="host" checked> DM が届かなければ、会議の主催者に知らせる <small>主催者が名簿を直す</small></label>
+      <label><input type="radio" name="stale" value="monthly"> 毎月、名簿と Slack の名前を突き合わせる <small>突き合わせのボットが別に要る</small></label>
+      <label><input type="radio" name="stale" value="name"> 名前で Slack のユーザーを探す <small>同姓同名の人に誤って届く</small></label>
+      <div class="opts-row esc">
+        <label><input type="radio" name="stale" value="other"> その他（補足に書く）</label>
+        <label><input type="radio" name="stale" value="hold"> まだ決められない</label>
+      </div>
+      <textarea name="stale.note" placeholder="補足・その他の答え（任意）"></textarea>
+    </doc-ask>
+  </doc-claim>
+
+  <doc-claim>
+    <p>一覧には、未完了の宿題をすべて載せる。</p>
+    <doc-mock frame="none" w="420"><template>
+<div class="sl">
+  <div class="av">宿</div>
+  <div class="who"><b>宿題リマインド</b><span class="dim">アプリ · 月曜 9:00 · #pj-ordering</span></div>
+  <div data-ref="list"><b>未完了の宿題 3件</b><br>・田中: 見積もりを出す（10/20まで）<br>・佐藤: 画面案を直す（期限なし）<br>・鈴木: 試験項目を作る <span class="late">（10/13 で期限切れ）</span></div>
+</div></template>
+      <doc-pin ref="list" anchor="r" title="チャンネルの全員に見える">期限切れも名前つきで出る。</doc-pin>
+    </doc-mock>
+    <doc-ask id="digest">
+      <p>週1回の一覧には、何を載せますか？</p>
+      <label><input type="radio" name="digest" value="all" checked> 未完了の宿題をすべて <small>全体が一目で分かる</small></label>
+      <label><input type="radio" name="digest" value="week"> 今週が期限の宿題だけ <small>一覧が短い</small></label>
+      <label><input type="radio" name="digest" value="count"> 件数だけ。名前は出さない <small>人前での催促を避ける</small></label>
+      <div class="opts-row esc">
+        <label><input type="radio" name="digest" value="other"> その他（補足に書く）</label>
+        <label><input type="radio" name="digest" value="hold"> まだ決められない</label>
+      </div>
+      <textarea name="digest.note" placeholder="補足・その他の答え（任意）"></textarea>
+    </doc-ask>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 3 · タイミング（再確認） ═════ -->
+<doc-claim>
+  <p>通知は、期限の前日の朝9時に1回だけ送る。</p>
+  <doc-ask id="timing" kind="再確認">
+    <p>通知はいつ送りますか？</p>
+    <p>第1回で開かれていなかったので、もう一度聞く。</p>
+    <label><input type="radio" name="timing" value="eve" checked> 期限の前日に1回 <small>通知が少なく、無視されにくい</small></label>
+    <label><input type="radio" name="timing" value="eve-day"> 前日と当日の2回 <small>当日の朝にもう一度知らせる</small></label>
+    <label><input type="radio" name="timing" value="3days"> 3日前と前日の2回 <small>重い宿題にも間に合う</small></label>
+    <div class="opts-row esc">
+      <label><input type="radio" name="timing" value="other"> その他（補足に書く）</label>
+      <label><input type="radio" name="timing" value="hold"> まだ決められない</label>
+    </div>
+    <textarea name="timing.note" placeholder="補足・その他の答え（任意）"></textarea>
+  </doc-ask>
+
+  <doc-claim settled="1">
+    <p>期限のない宿題は、会議の1週間後に1回だけ通知する。</p>
+    <doc-quote via="answer" from="第1回の回答（3.1）">期限なしは1週間後に1回だけでいい</doc-quote>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 4 · 完了（新しい枝） ═════ -->
+<doc-claim>
+  <p>担当者が DM の ✅ を押すと、宿題は完了になる。</p>
+  <doc-machine name="hw" caption="状態を押すと、その状態の説明が出る。">
+<script type="text/plain">
+machine hw initial waiting
+state waiting  "通知待ち"  # 期限の前日を待つ。
+state notified "通知済み"  # DM を送った。
+state overdue  "期限切れ"  # 期限を過ぎても ✅ がない。
+state done     "完了" final  # 担当者が ✅ を押した。
+
+| waiting | notified | done |
+| .       | overdue  | .    |
+
+waiting  -eve->   notified : 前日9時
+notified -check-> done     : ✅
+notified -due->   overdue  : 期限
+overdue  -check-> done     : ✅
+</script>
+  </doc-machine>
+  <doc-ask id="done">
+    <p>担当者は、完了をどう知らせますか？</p>
+    <label><input type="radio" name="done" value="react" checked> DM に ✅ のリアクションを付ける <small>Slack の中で済む</small></label>
+    <label><input type="radio" name="done" value="note"> 会議録の行に「済」と書き足す <small>会議録が正しい記録になる</small></label>
+    <label><input type="radio" name="done" value="none"> 完了は追わない <small>4.1 は不要になる</small></label>
+    <div class="opts-row esc">
+      <label><input type="radio" name="done" value="other"> その他（補足に書く）</label>
+      <label><input type="radio" name="done" value="hold"> まだ決められない</label>
+    </div>
+    <textarea name="done.note" placeholder="補足・その他の答え（任意）"></textarea>
+  </doc-ask>
+
+  <doc-claim>
+    <p>期限を過ぎた宿題には、翌朝に1回だけ再通知する。</p>
+    <div data-if="done!=none"><doc-ask id="overdue">
+      <p>期限を過ぎた宿題に、もう一度通知しますか？</p>
+      <label><input type="radio" name="overdue" value="once" checked> 翌朝に1回だけ <small>しつこくならない</small></label>
+      <label><input type="radio" name="overdue" value="daily"> 完了するまで毎朝 <small>確実だが、通知が増える</small></label>
+      <label><input type="radio" name="overdue" value="no"> 再通知しない</label>
+      <div class="opts-row esc">
+        <label><input type="radio" name="overdue" value="other"> その他（補足に書く）</label>
+        <label><input type="radio" name="overdue" value="hold"> まだ決められない</label>
+      </div>
+      <textarea name="overdue.note" placeholder="補足・その他の答え（任意）"></textarea>
+    </doc-ask></div>
+    <div data-if="done=none"><doc-note tone="info">完了を追わないと、期限切れも分からない。この項目は外す。</doc-note></div>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 後で聞くこと · 変えないもの ═════ -->
+<doc-claim aux="later">
+  <p>次の回で聞くこと: 完了を会議録に書き戻すか。</p>
+  <ul>
+    <li>完了した宿題を、ボットが会議録に書き戻すか。4 の答えが決まってから聞く。</li>
+  </ul>
+</doc-claim>
+
+<doc-claim aux="scope">
+  <p>変えないもの: 会議録の書き方と、宿題の作り方。</p>
+  <ul>
+    <li>会議録の書式は今のまま使う。</li>
+    <li>ボットは宿題を作らない。消さない。</li>
+  </ul>
+</doc-claim>
+
+</doc-plan>
+</main>
+</body>
+</html>
